@@ -417,15 +417,15 @@ export default function HomeScreen() {
 
       <View style={styles.quickActions}>
         <TouchableOpacity 
-          style={[styles.actionButton, styles.fullWidthButton]}
+          style={styles.actionButton}
           onPress={() => isTracking ? stopActivity() : startActivity('walk')}
           disabled={isTracking && activityType !== 'walk'}
         >
           <LinearGradient colors={['#667eea', '#764ba2']} style={styles.actionGradient}>
             {isTracking && activityType === 'walk' ? (
-              <Square size={20} color="white" fill="white" />
+              <Square size={18} color="white" fill="white" />
             ) : (
-              <Play size={20} color="white" fill="white" />
+              <Play size={18} color="white" fill="white" />
             )}
             <Text style={styles.actionText}>
               {isTracking && activityType === 'walk' ? 'Stop Walk' : '🚶‍♂️ Start Walk'}
@@ -433,6 +433,9 @@ export default function HomeScreen() {
           </LinearGradient>
         </TouchableOpacity>
       </View>
+      
+      {/* Bottom padding for better scrolling */}
+      <View style={{ height: 20 }} />
     </ScrollView>
   );
 }
@@ -639,11 +642,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 15,
+    gap: 10,
   },
   actionButton: {
     flex: 1,
-    marginHorizontal: 5,
     borderRadius: 15,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -653,20 +656,21 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   fullWidthButton: {
-    marginHorizontal: 0,
+    flex: 1,
   },
   actionGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 18,
-    minHeight: 60,
+    padding: 15,
+    minHeight: 55,
   },
   actionText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
     marginLeft: 8,
+    textAlign: 'center',
   },
   trackingCard: {
     margin: 20,
@@ -720,4 +724,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 8,
   },
-});
+}); 

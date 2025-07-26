@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, TextInput, Alert, Platform, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Heart, MessageCircle, Share as ShareIcon, Camera, MapPin, Flame } from 'lucide-react-native';
+import { Heart, MessageCircle, Share as ShareIcon, Camera, MapPin, Flame, X } from 'lucide-react-native';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { useSocialStore } from '@/store/socialStore';
 
 export default function SocialScreen() {
   const { posts, addReaction, addComment } = useSocialStore();
   const [newComment, setNewComment] = useState('');
   const [activeCommentPost, setActiveCommentPost] = useState<string | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
+  const [facing, setFacing] = useState<CameraType>('back');
+  const [permission, requestPermission] = useCameraPermissions();
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const cameraRef = React.useRef<any>(null);
 
   const handleReaction = (postId: string, reaction: string) => {
     addReaction(postId, reaction);
@@ -65,11 +72,11 @@ export default function SocialScreen() {
       [
         {
           text: 'Take Photo',
-          onPress: () => Alert.alert('Camera', 'Camera functionality would open here'),
+          onPress: openCamera,
         },
         {
           text: 'Choose from Gallery',
-          onPress: () => Alert.alert('Gallery', 'Photo gallery would open here'),
+          onPress: pickImageFromGallery,
         },
         {
           text: 'Text Only',
@@ -78,6 +85,95 @@ export default function SocialScreen() {
         { text: 'Cancel', style: 'cancel' },
       ]
     );
+  };
+
+  const openCamera = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert('Camera Not Available', 'Camera is not available on web. Please use gallery instead.');
+      return;
+    }
+
+    if (!permission) {
+      const { status } = await requestPermission();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Camera access is required to take photos!');
+        return;
+      }
+    }
+
+    if (!permission?.granted) {
+      Alert.alert('Permission needed', 'Camera access is required to take photos!');
+      return;
+    }
+
+    setShowCamera(true);
+  };
+
+  const pickImageFromGallery = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Gallery access is required to select photos!');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setCapturedImage(result.assets[0].uri);
+      showPostComposer(result.assets[0].uri);
+    }
+  };
+
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.8,
+          base64: false,
+        });
+        setCapturedImage(photo.uri);
+        setShowCamera(false);
+        showPostComposer(photo.uri);
+      } catch (error) {
+        console.error('Error taking picture:', error);
+        Alert.alert('Error', 'Failed to take picture');
+      }
+    }
+  };
+
+  const showPostComposer = (imageUri: string) => {
+    Alert.alert(
+      '🎉 Great Shot!',
+      'Your photo is ready! Add a caption to share your fitness adventure.',
+      [
+        {
+          text: 'Add Caption & Share',
+          onPress: () => {
+            // In a real app, this would open a post composer
+            Alert.alert('Success!', 'Your adventure has been shared! 📸✨');
+          },
+        },
+        {
+          text: 'Retake',
+          onPress: () => {
+            setCapturedImage(null);
+            if (Platform.OS !== 'web') {
+              setShowCamera(true);
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const toggleCameraFacing = () => {
+    setFacing(current => (current === 'back' ? 'front' : 'back'));
   };
 
   const formatTime = (timestamp: number) => {
@@ -111,6 +207,50 @@ export default function SocialScreen() {
           <Text style={styles.createPostText}>Share Your Adventure</Text>
         </LinearGradient>
       </TouchableOpacity>
+
+      {/* Camera Modal */}
+      {Platform.OS !== 'web' && (
+        <Modal
+          visible={showCamera}
+          animationType="slide"
+          presentationStyle="fullScreen"
+        >
+          <View style={styles.cameraContainer}>
+            <CameraView
+              style={styles.camera}
+              facing={facing}
+              ref={cameraRef}
+            >
+              <View style={styles.cameraOverlay}>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowCamera(false)}
+                >
+                  <X size={24} color="white" />
+                </TouchableOpacity>
+                
+                <View style={styles.cameraControls}>
+                  <TouchableOpacity
+                    style={styles.flipButton}
+                    onPress={toggleCameraFacing}
+                  >
+                    <Text style={styles.flipButtonText}>Flip</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={styles.captureButton}
+                    onPress={takePicture}
+                  >
+                    <View style={styles.captureButtonInner} />
+                  </TouchableOpacity>
+                  
+                  <View style={styles.placeholder} />
+                </View>
+              </View>
+            </CameraView>
+          </View>
+        </Modal>
+      )}
 
       <ScrollView style={styles.feed} showsVerticalScrollIndicator={false}>
         {posts.map((post) => (
@@ -491,5 +631,60 @@ const styles = StyleSheet.create({
   commentSubmitText: {
     color: 'white',
     fontWeight: 'bold',
+  },
+  cameraContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
+  camera: {
+    flex: 1,
+  },
+  cameraOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'space-between',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    zIndex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 20,
+    padding: 10,
+  },
+  cameraControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+    paddingBottom: 50,
+  },
+  flipButton: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  flipButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  captureButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'white',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  captureButtonInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B6B',
+  },
+  placeholder: {
+    width: 60,
   },
 });
